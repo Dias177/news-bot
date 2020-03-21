@@ -5,8 +5,8 @@ import requests
 import json
 from stock import Stock
 from news import News
-from constants import BOT_TOKEN, WEATHER_ID, WEATHER_URL, CURRENCY_URL, CORONA_URL
-from datetime import date
+from constants import BOT_TOKEN, WEATHER_ID, WEATHER_URL, CURRENCY_URL, CORONA_URL, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+from datetime import date, datetime
 import mysql.connector
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -15,13 +15,70 @@ today_modified = today.strftime("%B %d, %Y")
 
 @bot.message_handler(commands=['start'])
 def send_start(message):
-    msg = "Hi! I'm NewsBot.\n\nI'm here to help you keep up to date with the latest events (news, stocks, COVID-19, etc.)\
- in the world and in Kazakhstan.\n\nPlease refer to /help to see the list of all available commands.\n\nTake care!"
-    bot.send_message(message.chat.id, msg)
+    user_id = message.chat.id
+    
+    msg = "Hey! I'm NewsBot.\n\nI'm here to help you keep up to date with the latest events (news, stocks, COVID-19, etc.)\
+ in the world and in Kazakhstan.\n\nPlease refer to /help to see the list of all available commands.\n\n"
+    inline_markup = telebot.types.InlineKeyboardMarkup()
+
+    mydb = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            passwd=DB_PASSWORD,
+            database=DB_NAME
+    )
+    mycursor = mydb.cursor()
+
+    mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+    res = mycursor.fetchone()
+    mycursor.close()
+    mydb.close()
+
+    if not res:
+        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='Yes')
+        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='No')
+        inline_markup.row(itembtnyes, itembtnno)
+        msg = f'{msg}Would you like to receive daily reports?'
+    else:
+        msg = f'{msg}Take care!'
+    
+    bot.send_message(message.chat.id, msg, reply_markup=inline_markup)
+
+@bot.callback_query_handler(lambda query: query.data in ['Yes', 'No'])
+def notification_handler(query):
+    user_id = query.from_user.id
+    first_name = query.from_user.first_name
+    last_name = query.from_user.last_name
+    username = query.from_user.username
+    registration_date = datetime.now()
+    send = 0 if query.data == 'No' else 1
+
+    mydb = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            passwd=DB_PASSWORD,
+            database=DB_NAME
+    )
+    mycursor = mydb.cursor()
+    sql = "INSERT INTO user (user_id, first_name, last_name, username, registration_date, send, send_at)\
+        VALUES (%s, %s, %s, %s, %s, %s, %s)"
+    values = (user_id, first_name, last_name, username, registration_date, send, 'NULL')
+    mycursor.execute(sql, values)
+    mydb.commit()
+    mycursor.close()
+    mydb.close()
+
+    new_msg = query.message.text
+    new_msg = '\n\n'.join(new_msg.split('\n\n')[:-1])
+    new_msg = f'{new_msg}\n\nTake care!'
+    bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=None)
+
+    bot.answer_callback_query(query.id, 'Your preference is saved.')
 
 @bot.message_handler(commands=['stocks'])
 def send_stocks(message):
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    
     itembtnkz = telebot.types.KeyboardButton('Kazakhstan Stock Exchange (KASE)')
     itembtnus = telebot.types.KeyboardButton('American Stock Markets (NYSE, NASDAQ, etc.)')
     markup.row(itembtnkz, itembtnus)

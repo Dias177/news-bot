@@ -35,8 +35,8 @@ def send_start(message):
     mydb.close()
 
     if not res:
-        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='Yes')
-        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='No')
+        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='start_yes')
+        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='start_no')
         inline_markup.row(itembtnyes, itembtnno)
         msg = f'{msg}Would you like to receive daily reports?'
     else:
@@ -44,14 +44,14 @@ def send_start(message):
     
     bot.send_message(message.chat.id, msg, reply_markup=inline_markup)
 
-@bot.callback_query_handler(lambda query: query.data in ['Yes', 'No'])
+@bot.callback_query_handler(lambda query: query.data in ['start_yes', 'start_no'])
 def notification_handler(query):
     user_id = query.from_user.id
     first_name = query.from_user.first_name
     last_name = query.from_user.last_name
     username = query.from_user.username
     registration_date = datetime.now()
-    send = 0 if query.data == 'No' else 1
+    send = 0 if query.data == 'start_no' else 1
 
     mydb = mysql.connector.connect(
             host=DB_HOST,
@@ -77,8 +77,67 @@ def notification_handler(query):
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
-    msg = "<b>List of available commands</b>\n\n/stocks - get stock prices from KASE, NASDAQ and NYSE\n/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n/corona - get stats about COVID-19"
+    msg = "<b>List of available commands</b>\n\n/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
+/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
+/corona - get stats about COVID-19\n/settings - change your settings"
     bot.send_message(message.chat.id, msg, parse_mode='HTML')
+
+@bot.message_handler(commands=['settings'])
+def send_settings(message):
+    rep = "<b>Your Settings</b>\n\n"
+    user_id = message.chat.id
+    mydb = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            passwd=DB_PASSWORD,
+            database=DB_NAME
+    )
+    mycursor = mydb.cursor()
+    mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+    res = mycursor.fetchone()
+    mycursor.close()
+    mydb.close()
+
+    send = 'Yes' if res[-2] == 1 else 'No'
+    rep += f'Send daily reports? <b>{send}</b>\n\nWould you like to change your current settings?'
+    inline_markup = telebot.types.InlineKeyboardMarkup()
+    itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='settings_yes')
+    itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='settings_no')
+    inline_markup.row(itembtnyes, itembtnno)
+    bot.send_message(message.chat.id, rep, parse_mode='HTML', reply_markup=inline_markup)
+
+@bot.callback_query_handler(lambda query: query.data in ['settings_yes', 'settings_no'])
+def settings_handler(query):
+    if query.data == 'settings_yes':
+        user_id = query.from_user.id
+
+        mydb = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                passwd=DB_PASSWORD,
+                database=DB_NAME
+        )
+        mycursor = mydb.cursor()
+
+        mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+        res = mycursor.fetchone()
+        send_old = res[-2]
+        send_new = 0 if send_old == 1 else 1
+
+        sql = "UPDATE user SET send = %s WHERE user_id = %s"
+        values = (send_new, user_id)
+        mycursor.execute(sql, values)
+        mydb.commit()
+        mycursor.close()
+        mydb.close()
+
+        bot.answer_callback_query(query.id, 'Your settings are updated.')
+        new_msg = "<b>Your Settings</b>\n\n"
+        send = 'Yes' if send_new == 1 else 'No'
+        new_msg += f'Send daily reports? <b>{send}</b>'
+        bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, parse_mode='HTML')
+    else:
+        bot.answer_callback_query(query.id, 'Your settings are updated.')
 
 @bot.message_handler(commands=['stocks'])
 def send_stocks(message):
@@ -128,7 +187,7 @@ def send_corona(message):
         msg += f'Global recovered: {data["recovered_global"]}\n\n'
         msg += f'Kazakhstan cases: {data["cases_kz"]}\n'
         msg += f'Kazakhstan deaths: {data["deaths_kz"]}\n'
-        msg += f'Kazakhstan recovered: {data["recovered_kz"]}\n'
+        msg += f'Kazakhstan recovered: {data["recovered_kz"]}'
         bot.send_message(message.chat.id, msg, parse_mode='HTML')
     else:
         bot.send_message(message.chat.id, 'Cannot get data')
@@ -168,8 +227,8 @@ def weather_handler(message):
     response_json = response.json()
     if response_json['cod'] == 200:
         temp = response_json['main']['temp']
-        bot.send_message(message.chat.id, f'Current temperature in {message.text}: {temp}°C')
+        bot.send_message(message.chat.id, f'Current temperature in {message.text.capitalize()}: {temp}°C')
     else:
         bot.send_message(message.chat.id, 'Cannot find weather for this city!')
-
+    
 bot.polling()

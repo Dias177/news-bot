@@ -75,6 +75,11 @@ def notification_handler(query):
 
     bot.answer_callback_query(query.id, 'Your preference is saved.')
 
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    msg = "<b>List of available commands</b>\n\n/stocks - get stock prices from KASE, NASDAQ and NYSE\n/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n/corona - get stats about COVID-19"
+    bot.send_message(message.chat.id, msg, parse_mode='HTML')
+
 @bot.message_handler(commands=['stocks'])
 def send_stocks(message):
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)

@@ -8,7 +8,7 @@ from news import News
 from constants import BOT_TOKEN, WEATHER_ID, WEATHER_URL, CURRENCY_URL, CORONA_URL, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 from datetime import date, datetime
 import mysql.connector
-import schedule #__init__.py is modifeed and run_continuously is added from FAQ (documentation)
+import schedule #__init__.py is modified and run_continuously is added from FAQ (documentation)
 import time
 
 bot = telebot.TeleBot(BOT_TOKEN)

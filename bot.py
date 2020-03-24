@@ -8,6 +8,8 @@ from news import News
 from constants import BOT_TOKEN, WEATHER_ID, WEATHER_URL, CURRENCY_URL, CORONA_URL, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 from datetime import date, datetime
 import mysql.connector
+import schedule #__init__.py is modifeed and run_continuously is added from FAQ (documentation)
+import time
 
 bot = telebot.TeleBot(BOT_TOKEN)
 today = date.today()
@@ -230,5 +232,25 @@ def weather_handler(message):
         bot.send_message(message.chat.id, f'Current temperature in {message.text.capitalize()}: {temp}°C')
     else:
         bot.send_message(message.chat.id, 'Cannot find weather for this city!')
-    
+
+def send_daily_report():
+    mydb = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            passwd=DB_PASSWORD,
+            database=DB_NAME
+    )
+    mycursor = mydb.cursor()
+    mycursor.execute('SELECT * FROM user WHERE send=1')
+    res = mycursor.fetchall()
+    mycursor.close()
+    mydb.close()
+    for row in res:
+        bot.send_message(row[0], '/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
+/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
+/corona - get stats about COVID-19')
+
+schedule.every().day.at("01:10").do(send_daily_report)
+schedule.run_continuously() #this method is added from FAQ (documentation)
+
 bot.polling()

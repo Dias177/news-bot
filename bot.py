@@ -250,7 +250,7 @@ def send_daily_report():
 /news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
 /corona - get stats about COVID-19')
 
-schedule.every().day.at("01:10").do(send_daily_report)
+schedule.every().day.at("09:00").do(send_daily_report)
 schedule.run_continuously() #this method is added from FAQ (documentation)
 
 bot.polling()

@@ -14,6 +14,7 @@ import time
 bot = telebot.TeleBot(BOT_TOKEN)
 today = date.today()
 today_modified = today.strftime("%B %d, %Y")
+news_counter = 0
 
 @bot.message_handler(commands=['start'])
 def send_start(message):
@@ -193,6 +194,51 @@ def send_corona(message):
         bot.send_message(message.chat.id, msg, parse_mode='HTML')
     else:
         bot.send_message(message.chat.id, 'Cannot get data')
+
+@bot.message_handler(commands=['rate'])
+def send_rate(message):
+    n = News()
+    n.find_news(news_counter)
+    inline_markup = telebot.types.InlineKeyboardMarkup()
+    itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='news_yes')
+    itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='news_no')
+    inline_markup.row(itembtnyes, itembtnno)
+    bot.send_message(message.chat.id, f"{n.title}\n{n.url}\n\nAre you interested in this news?", disable_web_page_preview=True, reply_markup=inline_markup)
+
+@bot.callback_query_handler(lambda query: query.data in ['news_yes', 'news_no'])
+def rate_handler(query):
+    is_interested = 1 if query.data == 'news_yes' else 0
+    text = query.message.text.split("\n")
+    news_title = text[0]
+    news_url = text[1]
+    user_id = query.message.chat.id
+
+    mydb = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                passwd=DB_PASSWORD,
+                database=DB_NAME
+        )
+    mycursor = mydb.cursor()
+    sql = 'INSERT INTO news (news_title, news_url, is_interested, user_user_id) VALUES (%s, %s, %s, %s)'
+    val = (news_title, news_url, is_interested, user_id)
+    mycursor.execute(sql, val)
+    mydb.commit()
+    mycursor.close()
+    mydb.close()
+
+    bot.answer_callback_query(query.id, 'Your choice is saved')
+    global news_counter
+    news_counter = 0 if news_counter == 80 else news_counter + 1
+    n = News()
+    n.find_news(news_counter)
+    new_msg = f"{n.title}\n{n.url}\n\nAre you interested in this news?"
+    inline_markup = telebot.types.InlineKeyboardMarkup()
+    itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='news_yes')
+    itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='news_no')
+    inline_markup.row(itembtnyes, itembtnno)
+    bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, disable_web_page_preview=True, reply_markup=inline_markup)
+
 
 @bot.message_handler(func=lambda message: True)
 def send_any(message):

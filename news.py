@@ -2,6 +2,8 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup
 
 main_url = "https://www.zakon.kz/"
+page = urlopen(main_url)
+soup = BeautifulSoup(page, "html.parser")
 
 class News:
 
@@ -10,9 +12,6 @@ class News:
         self.url = "No URL"
 
     def find_supermain(self):
-        page = urlopen(main_url)
-        soup = BeautifulSoup(page, "html.parser")
-
         title = soup.find("div", attrs={"class": "super_main"})
         title = title.text.strip()
 
@@ -22,8 +21,6 @@ class News:
         self.title = title
 
     def find_main(self, i):
-        page = urlopen(main_url)
-        soup = BeautifulSoup(page, "html.parser")
 
         title = soup.find("div", attrs={"class": "main_list"}).find_all('a')[i]
         title = title.text.strip()
@@ -35,6 +32,18 @@ class News:
 
         self.url = url
         self.title = title
+
+    def find_news(self, i):
+        last_feed = soup.find("div", attrs={"class": "last_feed"})
+        all_a = last_feed.find_all('a')
+        if i < len(all_a):
+            title = all_a[i].get_text()[5:]
+            while title[-1] in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
+                title = title[:-1]
+            url = main_url + all_a[i].get('href')
+            self.title = title
+            self.url = url
+        return None
 
     def __repr__(self):
         return f"{self.title} {self.url}"

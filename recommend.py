@@ -61,6 +61,3 @@ def get_data(user_id):
     mycursor.close()
     mydb.close()
     return res
-
-user_id = 392971432
-recommend(user_id)

@@ -13,8 +13,9 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import confusion_matrix
+from news import News
 
-def recommend(user_id):
+def recommend(user_id, news, num_news):
     data = get_data(user_id)
     corpus, y = [], []
     for row in data:
@@ -24,15 +25,17 @@ def recommend(user_id):
         corpus.append(preprocessed_news_title)
         y.append(is_interested)
     
-    cv = CountVectorizer(max_features = 1500)
+    for n in news:
+        preprocessed_news_title = preprocess_text(n)
+        corpus.append(preprocessed_news_title)
+    
+    cv = CountVectorizer(max_features = 1000)
     X = cv.fit_transform(corpus).toarray()
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, random_state = 0)
-
     classifier = GaussianNB()
-    classifier.fit(X_train, y_train)
-    y_pred = classifier.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred)
-    print(cm)
+    classifier.fit(X[:-num_news], y)
+    y_pred = classifier.predict(X[-num_news:])
+    
+    return y_pred
 
 def preprocess_text(text):
     mystem = Mystem() 

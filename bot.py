@@ -10,6 +10,7 @@ from datetime import date, datetime
 import mysql.connector
 import schedule #__init__.py is modified and run_continuously is added from FAQ (documentation)
 import time
+from recommend import recommend, preprocess_text
 
 bot = telebot.TeleBot(BOT_TOKEN)
 today = date.today()
@@ -239,6 +240,21 @@ def rate_handler(query):
     inline_markup.row(itembtnyes, itembtnno)
     bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, disable_web_page_preview=True, reply_markup=inline_markup)
 
+@bot.message_handler(commands=['recommend'])
+def recommend_handler(message):
+    num_news = 20
+    n = News()
+    news, urls = [], []
+    for i in range(num_news):
+        n.find_news(i)
+        news.append(n.title)
+        urls.append(n.url)
+    y_pred = recommend(message.chat.id, news, num_news)
+    msg = '<b>Recommended news based on your preferences</b>\n\n'
+    for i in range(num_news):
+        if y_pred[i] == 1:
+            msg += f'<a href="{urls[i]}">{news[i]}</a>\n\n'
+    bot.send_message(message.chat.id, msg, parse_mode='HTML', disable_web_page_preview=True)
 
 @bot.message_handler(func=lambda message: True)
 def send_any(message):

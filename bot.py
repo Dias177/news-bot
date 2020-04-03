@@ -1,8 +1,10 @@
 import telebot
-import lst
 import yfinance as yf
 import requests
 import json
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+import re
 from stock import Stock
 from news import News
 from constants import BOT_TOKEN, WEATHER_ID, WEATHER_URL, CURRENCY_URL, CORONA_URL, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
@@ -280,7 +282,7 @@ def send_any(message):
 
 def stocks_handler(message):
     if message.text == 'Kazakhstan Stock Exchange (KASE)':
-        top_ten_stocks = lst.most_liquid()
+        top_ten_stocks = most_liquid()
         stocks = []
         for stock in top_ten_stocks:
             temp = Stock(stock)
@@ -312,6 +314,17 @@ def weather_handler(message):
         bot.send_message(message.chat.id, f'Current temperature in {message.text.capitalize()}: {temp}°C')
     else:
         bot.send_message(message.chat.id, 'Cannot find weather for this city!')
+    
+def most_liquid():
+    url = 'http://kase.kz/ru/shares/'
+    res = []
+    soup = BeautifulSoup(urlopen(url), 'html.parser')
+    tickers = soup.find_all(href=re.compile("/ru/shares/show/"))
+    for x in tickers[:10]:
+        x = x.text.strip()
+        res.append(x)
+
+    return res
 
 def send_daily_report():
     try:

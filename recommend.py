@@ -1,18 +1,13 @@
-import numpy as np
 import re
 import nltk
 nltk.download('stopwords')
 from nltk.corpus import stopwords
 from pymystem3 import Mystem
 from string import punctuation
-import pandas as pd
-import matplotlib.pyplot as plt
 from constants import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 import mysql.connector
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import confusion_matrix
 from news import News
 
 def recommend(user_id, news, num_news):

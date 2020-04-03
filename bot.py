@@ -267,14 +267,14 @@ def recommend_handler(message):
         news.append(n.title)
         urls.append(n.url)
     y_pred = recommend(message.chat.id, news, num_news)
-    if y_pred:
+    if y_pred is None:
+        bot.send_message(message.chat.id, 'Cannot connect to DB')
+    else:
         msg = '<b>Recommended news based on your preferences</b>\n\n'
         for i in range(num_news):
             if y_pred[i] == 1:
                 msg += f'<a href="{urls[i]}">{news[i]}</a>\n\n'
         bot.send_message(message.chat.id, msg, parse_mode='HTML', disable_web_page_preview=True)
-    else:
-        bot.send_message(message.chat.id, 'Cannot connect to DB')
 
 @bot.message_handler(func=lambda message: True)
 def send_any(message):

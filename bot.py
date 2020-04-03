@@ -25,29 +25,30 @@ def send_start(message):
  in the world and in Kazakhstan.\n\nPlease refer to /help to see the list of all available commands.\n\n"
     inline_markup = telebot.types.InlineKeyboardMarkup()
 
-    mydb = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            passwd=DB_PASSWORD,
-            database=DB_NAME
-    )
-    mycursor = mydb.cursor()
-
-    mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
-    res = mycursor.fetchone()
-    mycursor.close()
-    mydb.close()
-
-    if not res:
-        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='start_yes')
-        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='start_no')
-        inline_markup.row(itembtnyes, itembtnno)
-        msg = f'{msg}Would you like to receive daily reports?'
-    else:
+    try:
+        mydb = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                passwd=DB_PASSWORD,
+                database=DB_NAME
+        )
+        mycursor = mydb.cursor()
+        mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+        res = mycursor.fetchone()
+        mycursor.close()
+        mydb.close()
+        if not res:
+            itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='start_yes')
+            itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='start_no')
+            inline_markup.row(itembtnyes, itembtnno)
+            msg = f'{msg}Would you like to receive daily reports?'
+        else:
+            msg = f'{msg}Take care!'
+        bot.send_message(message.chat.id, msg, reply_markup=inline_markup)
+    except:
         msg = f'{msg}Take care!'
+        bot.send_message(message.chat.id, msg, reply_markup=inline_markup)
     
-    bot.send_message(message.chat.id, msg, reply_markup=inline_markup)
-
 @bot.callback_query_handler(lambda query: query.data in ['start_yes', 'start_no'])
 def notification_handler(query):
     user_id = query.from_user.id
@@ -57,64 +58,7 @@ def notification_handler(query):
     registration_date = datetime.now()
     send = 0 if query.data == 'start_no' else 1
 
-    mydb = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            passwd=DB_PASSWORD,
-            database=DB_NAME
-    )
-    mycursor = mydb.cursor()
-    sql = "INSERT INTO user (user_id, first_name, last_name, username, registration_date, send, send_at)\
-        VALUES (%s, %s, %s, %s, %s, %s, %s)"
-    values = (user_id, first_name, last_name, username, registration_date, send, 'NULL')
-    mycursor.execute(sql, values)
-    mydb.commit()
-    mycursor.close()
-    mydb.close()
-
-    new_msg = query.message.text
-    new_msg = '\n\n'.join(new_msg.split('\n\n')[:-1])
-    new_msg = f'{new_msg}\n\nTake care!'
-    bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=None)
-
-    bot.answer_callback_query(query.id, 'Your preference is saved.')
-
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    msg = "<b>List of available commands</b>\n\n/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
-/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
-/corona - get stats about COVID-19\n/settings - change your settings"
-    bot.send_message(message.chat.id, msg, parse_mode='HTML')
-
-@bot.message_handler(commands=['settings'])
-def send_settings(message):
-    rep = "<b>Your Settings</b>\n\n"
-    user_id = message.chat.id
-    mydb = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            passwd=DB_PASSWORD,
-            database=DB_NAME
-    )
-    mycursor = mydb.cursor()
-    mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
-    res = mycursor.fetchone()
-    mycursor.close()
-    mydb.close()
-
-    send = 'Yes' if res[-2] == 1 else 'No'
-    rep += f'Send daily reports? <b>{send}</b>\n\nWould you like to change your current settings?'
-    inline_markup = telebot.types.InlineKeyboardMarkup()
-    itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='settings_yes')
-    itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='settings_no')
-    inline_markup.row(itembtnyes, itembtnno)
-    bot.send_message(message.chat.id, rep, parse_mode='HTML', reply_markup=inline_markup)
-
-@bot.callback_query_handler(lambda query: query.data in ['settings_yes', 'settings_no'])
-def settings_handler(query):
-    if query.data == 'settings_yes':
-        user_id = query.from_user.id
-
+    try:
         mydb = mysql.connector.connect(
                 host=DB_HOST,
                 user=DB_USER,
@@ -122,26 +66,94 @@ def settings_handler(query):
                 database=DB_NAME
         )
         mycursor = mydb.cursor()
-
-        mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
-        res = mycursor.fetchone()
-        send_old = res[-2]
-        send_new = 0 if send_old == 1 else 1
-
-        sql = "UPDATE user SET send = %s WHERE user_id = %s"
-        values = (send_new, user_id)
+        sql = "INSERT INTO user (user_id, first_name, last_name, username, registration_date, send, send_at)\
+            VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        values = (user_id, first_name, last_name, username, registration_date, send, 'NULL')
         mycursor.execute(sql, values)
         mydb.commit()
         mycursor.close()
         mydb.close()
 
-        bot.answer_callback_query(query.id, 'Your settings are updated.')
-        new_msg = "<b>Your Settings</b>\n\n"
-        send = 'Yes' if send_new == 1 else 'No'
-        new_msg += f'Send daily reports? <b>{send}</b>'
-        bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, parse_mode='HTML')
-    else:
-        bot.answer_callback_query(query.id, 'Your settings are updated.')
+        new_msg = query.message.text
+        new_msg = '\n\n'.join(new_msg.split('\n\n')[:-1])
+        new_msg = f'{new_msg}\n\nTake care!'
+        bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=None)
+
+        bot.answer_callback_query(query.id, 'Your preference is saved.')
+    except:
+        bot.answer_callback_query(query.id, 'Cannot connect to DB.')
+        print('Cannot connect to DB.')
+
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    msg = "<b>List of available commands</b>\n\n/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
+/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
+/corona - get stats about COVID-19\n/rate - label news to get news \
+recommendations\n/recommend - get news recommendations\n/settings - change your settings"
+    bot.send_message(message.chat.id, msg, parse_mode='HTML')
+
+@bot.message_handler(commands=['settings'])
+def send_settings(message):
+    rep = "<b>Your Settings</b>\n\n"
+    inline_markup = telebot.types.InlineKeyboardMarkup()
+    user_id = message.chat.id
+    try:
+        mydb = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                passwd=DB_PASSWORD,
+                database=DB_NAME
+        )
+        mycursor = mydb.cursor()
+        mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+        res = mycursor.fetchone()
+        mycursor.close()
+        mydb.close()
+
+        send = 'Yes' if res[-2] == 1 else 'No'
+        rep += f'Send daily reports? <b>{send}</b>\n\nWould you like to change your current settings?'
+        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='settings_yes')
+        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='settings_no')
+        inline_markup.row(itembtnyes, itembtnno)
+    except:
+        rep += 'Cannot connect to DB'
+    bot.send_message(message.chat.id, rep, parse_mode='HTML', reply_markup=inline_markup)
+
+@bot.callback_query_handler(lambda query: query.data in ['settings_yes', 'settings_no'])
+def settings_handler(query):
+    try:
+        if query.data == 'settings_yes':
+            user_id = query.from_user.id
+
+            mydb = mysql.connector.connect(
+                    host=DB_HOST,
+                    user=DB_USER,
+                    passwd=DB_PASSWORD,
+                    database=DB_NAME
+            )
+            mycursor = mydb.cursor()
+
+            mycursor.execute(f'SELECT * FROM user WHERE user_id={user_id}')
+            res = mycursor.fetchone()
+            send_old = res[-2]
+            send_new = 0 if send_old == 1 else 1
+
+            sql = "UPDATE user SET send = %s WHERE user_id = %s"
+            values = (send_new, user_id)
+            mycursor.execute(sql, values)
+            mydb.commit()
+            mycursor.close()
+            mydb.close()
+
+            bot.answer_callback_query(query.id, 'Your settings are updated.')
+            new_msg = "<b>Your Settings</b>\n\n"
+            send = 'Yes' if send_new == 1 else 'No'
+            new_msg += f'Send daily reports? <b>{send}</b>'
+            bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, parse_mode='HTML')
+        else:
+            bot.answer_callback_query(query.id, 'Your settings are updated.')
+    except:
+        bot.answer_callback_query(query.id, 'Cannot connect to DB.')
 
 @bot.message_handler(commands=['stocks'])
 def send_stocks(message):
@@ -214,31 +226,34 @@ def rate_handler(query):
     news_url = text[1]
     user_id = query.message.chat.id
 
-    mydb = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                passwd=DB_PASSWORD,
-                database=DB_NAME
-        )
-    mycursor = mydb.cursor()
-    sql = 'INSERT INTO news (news_title, news_url, is_interested, user_user_id) VALUES (%s, %s, %s, %s)'
-    val = (news_title, news_url, is_interested, user_id)
-    mycursor.execute(sql, val)
-    mydb.commit()
-    mycursor.close()
-    mydb.close()
+    try:
+        mydb = mysql.connector.connect(
+                    host=DB_HOST,
+                    user=DB_USER,
+                    passwd=DB_PASSWORD,
+                    database=DB_NAME
+            )
+        mycursor = mydb.cursor()
+        sql = 'INSERT INTO news (news_title, news_url, is_interested, user_user_id) VALUES (%s, %s, %s, %s)'
+        val = (news_title, news_url, is_interested, user_id)
+        mycursor.execute(sql, val)
+        mydb.commit()
+        mycursor.close()
+        mydb.close()
 
-    bot.answer_callback_query(query.id, 'Your choice is saved')
-    global news_counter
-    news_counter = 0 if news_counter == 80 else news_counter + 1
-    n = News()
-    n.find_news(news_counter)
-    new_msg = f"{n.title}\n{n.url}\n\nAre you interested in this news?"
-    inline_markup = telebot.types.InlineKeyboardMarkup()
-    itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='news_yes')
-    itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='news_no')
-    inline_markup.row(itembtnyes, itembtnno)
-    bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, disable_web_page_preview=True, reply_markup=inline_markup)
+        bot.answer_callback_query(query.id, 'Your choice is saved')
+        global news_counter
+        news_counter = 0 if news_counter == 80 else news_counter + 1
+        n = News()
+        n.find_news(news_counter)
+        new_msg = f"{n.title}\n{n.url}\n\nAre you interested in this news?"
+        inline_markup = telebot.types.InlineKeyboardMarkup()
+        itembtnyes = telebot.types.InlineKeyboardButton('Yes', callback_data='news_yes')
+        itembtnno = telebot.types.InlineKeyboardButton('No', callback_data='news_no')
+        inline_markup.row(itembtnyes, itembtnno)
+        bot.edit_message_text(text=new_msg, chat_id=query.message.chat.id, message_id=query.message.message_id, disable_web_page_preview=True, reply_markup=inline_markup)
+    except:
+        bot.edit_message_text(text='Cannot connect to DB', chat_id=query.message.chat.id, message_id=query.message.message_id)
 
 @bot.message_handler(commands=['recommend'])
 def recommend_handler(message):
@@ -250,11 +265,14 @@ def recommend_handler(message):
         news.append(n.title)
         urls.append(n.url)
     y_pred = recommend(message.chat.id, news, num_news)
-    msg = '<b>Recommended news based on your preferences</b>\n\n'
-    for i in range(num_news):
-        if y_pred[i] == 1:
-            msg += f'<a href="{urls[i]}">{news[i]}</a>\n\n'
-    bot.send_message(message.chat.id, msg, parse_mode='HTML', disable_web_page_preview=True)
+    if y_pred:
+        msg = '<b>Recommended news based on your preferences</b>\n\n'
+        for i in range(num_news):
+            if y_pred[i] == 1:
+                msg += f'<a href="{urls[i]}">{news[i]}</a>\n\n'
+        bot.send_message(message.chat.id, msg, parse_mode='HTML', disable_web_page_preview=True)
+    else:
+        bot.send_message(message.chat.id, 'Cannot connect to DB')
 
 @bot.message_handler(func=lambda message: True)
 def send_any(message):
@@ -296,21 +314,24 @@ def weather_handler(message):
         bot.send_message(message.chat.id, 'Cannot find weather for this city!')
 
 def send_daily_report():
-    mydb = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            passwd=DB_PASSWORD,
-            database=DB_NAME
-    )
-    mycursor = mydb.cursor()
-    mycursor.execute('SELECT * FROM user WHERE send=1')
-    res = mycursor.fetchall()
-    mycursor.close()
-    mydb.close()
-    for row in res:
-        bot.send_message(row[0], '/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
-/news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
-/corona - get stats about COVID-19')
+    try:
+        mydb = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                passwd=DB_PASSWORD,
+                database=DB_NAME
+        )
+        mycursor = mydb.cursor()
+        mycursor.execute('SELECT * FROM user WHERE send=1')
+        res = mycursor.fetchall()
+        mycursor.close()
+        mydb.close()
+        for row in res:
+            bot.send_message(row[0], '/stocks - get stock prices from KASE, NASDAQ and NYSE\n\
+    /news - get main news\n/weather - get current temperature\n/currency - get exchange rates\n\
+    /corona - get stats about COVID-19\n/recommend - get news recommendations')
+    except:
+        print('Cannot connect to DB')
 
 schedule.every().day.at("09:00").do(send_daily_report)
 schedule.run_continuously() #this method is added from FAQ (documentation)
